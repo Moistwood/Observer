@@ -1,0 +1,50 @@
+# 主程序
+import argparse
+
+import db
+import monitor
+
+
+def main():
+    db.init_db()  # 建表
+
+    p = argparse.ArgumentParser(prog="sitewatch", description="网页内容监控器")
+    sub = p.add_subparsers(dest="cmd", required=True)
+
+    a = sub.add_parser("add", help="添加监控项")
+    a.add_argument("name")
+    a.add_argument("url" )
+    a.add_argument("--selector", default=None)
+
+    sub.add_parser("list", help="列出所有监控项")
+    sub.add_parser("check", help="检查所有监控项变化")
+
+    h = sub.add_parser("history", help="看某监控项历史")
+    h.add_argument("name", help="监控项名字")
+
+    args = p.parse_args()
+
+    if args.cmd == "add":
+        db.add_site(args.name, args.url, args.selector)
+        print(f"已添加: {args.name} -> {args.url}")
+
+    elif args.cmd == "list":
+        rows = db.get_sites()
+        if not rows:
+            print("没有监控项。")
+        for s in rows:
+            print(f"{s['name']}\t{s['url']}\t{s['ua'] or '未检查'}")
+
+    elif args.cmd == "check":
+        monitor.check_all()
+
+    elif args.cmd == "history":
+        rows = db.get_hist(args.name)
+        if not rows:
+            print("暂无历史。")
+        for r in rows:
+            print(r["cap"])
+
+
+if __name__ == "__main__":
+    main()
