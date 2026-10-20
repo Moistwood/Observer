@@ -43,7 +43,11 @@ def main():
         if not rows:
             print("暂无历史。")
         for r in rows:
-            print(r["cap"])
+            content = r["c"]
+            if len(content) > 200:
+                #测试版先阶段性截断，避免输出过长
+                content = content[:200] + "...(已截断)"
+            print(f"[{r['cap']}]\n{content}\n")
 
 
 if __name__ == "__main__":
