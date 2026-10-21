@@ -2,6 +2,7 @@
 import argparse
 
 import db
+import fetcher
 import monitor
 
 
@@ -20,6 +21,10 @@ def main():
 
     h = sub.add_parser("history", help="看某监控项历史")
     h.add_argument("name", help="监控项名字")
+
+    pv = sub.add_parser("preview", help="抓一次看看抓到了什么")
+    pv.add_argument("url")
+    pv.add_argument("--selector", default=None)
 
     args = p.parse_args()
 
@@ -50,6 +55,23 @@ def main():
                 #测试版先阶段性截断，避免输出过长
                 content = content[:200] + "...已截断"
             print(f"[{r['cap']}]\n{content}\n")
+
+
+    elif args.cmd == "preview":
+        try:
+            info = fetcher.probe(args.url, args.selector)
+        except Exception as e:
+            print(f"[出错] {e}")
+            return
+        print(f"状态码    {info['status']}")
+        print(f"内容类型  {info['content_type'] or '未声明'}")
+        print(f"字符数    {info['chars']}")
+        print("-" * 40)
+        lines = info["text"].splitlines()
+        for line in lines[:20]:
+            print(line)
+        if len(lines) > 20:
+            print(f"... 共 {len(lines)} 行")
 
 
 if __name__ == "__main__":
