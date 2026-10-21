@@ -14,31 +14,33 @@ def conn():
 
 def init_db():
     c = conn()
-    rebuild = False
-    try:
-        c.execute("SELECT url FROM sites LIMIT 1")
-    except sqlite3.OperationalError:
-        rebuild = True
-    if rebuild:
-        c.execute("DROP TABLE IF EXISTS sites")
-        c.execute("DROP TABLE IF EXISTS snapshots")
-        #  lc=上次内容 ua=更新时间
-        c.execute("""CREATE TABLE sites (
+    # 表在但连主键都没有, 说明结构已损坏, 只能删掉重建
+    have = {r[1] for r in c.execute("PRAGMA table_info(sites)").fetchall()}
+    if have and "name" not in have:
+        c.execute("DROP TABLE sites")
+    #  lc=上次内容 ua=更新时间
+    c.execute("""CREATE TABLE IF NOT EXISTS sites (
             name TEXT PRIMARY KEY,
             url    TEXT,
             selector  TEXT,
             lc   TEXT,
             ua   TEXT
         )""")
-        #  cap=抓取时间
-        c.execute("""CREATE TABLE snapshots (
+    #  cap=抓取时间
+    c.execute("""CREATE TABLE IF NOT EXISTS snapshots (
             sn   TEXT,
             c    TEXT,
             cap  TEXT
         )""")
-    else:
-        c.execute("""CREATE TABLE IF NOT EXISTS snapshots (
-            sn TEXT, c TEXT, cap TEXT)""")
+    # 老版本的库可能缺列: 逐列补上, 不 DROP, 已有数据不动
+    have = {r[1] for r in c.execute("PRAGMA table_info(sites)").fetchall()}
+    for col in ("url", "selector", "lc", "ua"):
+        if col not in have:
+            c.execute(f"ALTER TABLE sites ADD COLUMN {col} TEXT")
+    have = {r[1] for r in c.execute("PRAGMA table_info(snapshots)").fetchall()}
+    for col in ("sn", "c", "cap"):
+        if col not in have:
+            c.execute(f"ALTER TABLE snapshots ADD COLUMN {col} TEXT")
     c.commit()
     c.close()
 

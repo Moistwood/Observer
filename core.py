@@ -7,7 +7,6 @@ import monitor
 
 def main():
     db.init_db()  # 建表
-
     p = argparse.ArgumentParser(prog="sitewatch", description="网页内容监控器")
     sub = p.add_subparsers(dest="cmd", required=True)
 
@@ -32,8 +31,11 @@ def main():
         rows = db.get_sites()
         if not rows:
             print("没有监控项。")
+            return
+        print("名字\t网址\t上次变化")
         for s in rows:
-            print(f"{s['name']}\t{s['url']}\t{s['ua'] or '未检查'}")
+            # ua 只在内容变化时才更新, 空值表示"还没变过", 不是"没检查过"
+            print(f"{s['name']}\t{s['url']}\t{s['ua'] or '尚未变化'}")
 
     elif args.cmd == "check":
         monitor.check_all()
@@ -46,7 +48,7 @@ def main():
             content = r["c"]
             if len(content) > 200:
                 #测试版先阶段性截断，避免输出过长
-                content = content[:200] + "...(已截断)"
+                content = content[:200] + "...已截断"
             print(f"[{r['cap']}]\n{content}\n")
 
 
