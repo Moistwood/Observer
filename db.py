@@ -18,11 +18,12 @@ def init_db():
     have = {r[1] for r in c.execute("PRAGMA table_info(sites)").fetchall()}
     if have and "name" not in have:
         c.execute("DROP TABLE sites")
-    #  lc=上次内容 ua=更新时间
+    #  lc=上次内容 ua=更新时间 json_keys=只监控的JSON键名
     c.execute("""CREATE TABLE IF NOT EXISTS sites (
             name TEXT PRIMARY KEY,
             url    TEXT,
             selector  TEXT,
+            json_keys TEXT,
             lc   TEXT,
             ua   TEXT
         )""")
@@ -34,7 +35,7 @@ def init_db():
         )""")
     # 老版本的库可能缺列: 逐列补上, 不 DROP, 已有数据不动
     have = {r[1] for r in c.execute("PRAGMA table_info(sites)").fetchall()}
-    for col in ("url", "selector", "lc", "ua"):
+    for col in ("url", "selector", "json_keys", "lc", "ua"):
         if col not in have:
             c.execute(f"ALTER TABLE sites ADD COLUMN {col} TEXT")
     have = {r[1] for r in c.execute("PRAGMA table_info(snapshots)").fetchall()}
@@ -45,11 +46,11 @@ def init_db():
     c.close()
 
 
-def add_site(name, url, selector):
+def add_site(name, url, selector, json_keys=None):
     c = conn()
     c.execute(
-        "INSERT OR REPLACE INTO sites (name, url, selector, lc, ua) VALUES (?, ?, ?, ?, ?)",
-        (name, url, selector, None, None),
+        "INSERT OR REPLACE INTO sites (name, url, selector, json_keys, lc, ua) VALUES (?, ?, ?, ?, ?, ?)",
+        (name, url, selector, json_keys, None, None),
     )
     c.commit()
     c.close()

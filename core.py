@@ -15,6 +15,7 @@ def main():
     a.add_argument("name")
     a.add_argument("url" )
     a.add_argument("--selector", default=None)
+    a.add_argument("--json-keys", default=None, help="只监控这些JSON键名, 逗号分隔")
 
     sub.add_parser("list", help="列出所有监控项")
     sub.add_parser("check", help="检查所有监控项变化")
@@ -25,12 +26,16 @@ def main():
     pv = sub.add_parser("preview", help="抓一次看看抓到了什么")
     pv.add_argument("url")
     pv.add_argument("--selector", default=None)
+    pv.add_argument("--json-keys", default=None, help="只监控这些JSON键名, 逗号分隔")
 
     args = p.parse_args()
 
     if args.cmd == "add":
-        db.add_site(args.name, args.url, args.selector)
-        print(f"已添加: {args.name} -> {args.url}")
+        db.add_site(args.name, args.url, args.selector, args.json_keys)
+        if args.json_keys:
+            print(f"已添加: {args.name} -> {args.url} (只监控 {args.json_keys})")
+        else:
+            print(f"已添加: {args.name} -> {args.url}")
 
     elif args.cmd == "list":
         rows = db.get_sites()
@@ -59,13 +64,20 @@ def main():
 
     elif args.cmd == "preview":
         try:
-            info = fetcher.probe(args.url, args.selector)
+            info = fetcher.probe(args.url, args.selector, args.json_keys)
         except Exception as e:
             print(f"[出错] {e}")
             return
         print(f"状态码    {info['status']}")
         print(f"内容类型  {info['content_type'] or '未声明'}")
         print(f"字符数    {info['chars']}")
+        if info["keys"]:
+            n = info["matched"]
+            print(f"过滤      {','.join(sorted(info['keys']))} -> 匹配 {n} 个字段")
+            if n == 0:
+                print("[警告] 一个字段都没匹配到, 键名可能写错了")
+        elif info["content_type"].find("json") >= 0:
+            print("[提示] 这是 JSON, 加 --json-keys 可以只监控你关心的字段")
         print("-" * 40)
         lines = info["text"].splitlines()
         for line in lines[:20]:

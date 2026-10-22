@@ -8,7 +8,7 @@ def check_one(site):
     # site 是 sites 表的一行
     n = site["name"]       # 名字
     try:
-        c = fetcher.fetch(site["url"], site["selector"])  # 新抓到的内容
+        c = fetcher.fetch(site["url"], site["selector"], site["json_keys"])  # 新抓到的内容
     except Exception as e:
         # 抓取出错(网址打不开等), 跳过这个站点, 不影响其他的
         print(f"[出错] {n}: {e}")
