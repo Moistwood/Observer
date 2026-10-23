@@ -70,6 +70,17 @@ def get_site(name):
     return row
 
 
+def del_site(name):
+    # 连历史快照一起删, 返回删掉的快照条数
+    c = conn()
+    n = c.execute("SELECT COUNT(*) FROM snapshots WHERE sn=?", (name,)).fetchone()[0]
+    c.execute("DELETE FROM snapshots WHERE sn=?", (name,))
+    c.execute("DELETE FROM sites WHERE name=?", (name,))
+    c.commit()
+    c.close()
+    return n
+
+
 def upd(name, c, t):
     # c=新内容 t=时间
     cn = conn()

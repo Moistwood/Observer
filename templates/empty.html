@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ name }} · sitewatch</title>
+<style>
+  body {
+    margin: 0; padding: 32px 20px;
+    background: #f6f7f9; color: #1f2328;
+    font: 14px/1.6 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; }
+  a.back { color: #6b7280; font-size: 12px; text-decoration: none; }
+  h1 { font-size: 20px; font-weight: 600; margin: 10px 0; }
+  .box {
+    background: #fff; border: 1px dashed #e3e6ea; border-radius: 10px;
+    padding: 40px; text-align: center; color: #6b7280;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="/">&larr; 返回列表</a>
+  <h1>{{ name }}</h1>
+  <div class="box">
+    {% if exists %}
+      这个站点还没有任何快照。跑一次 <code>python core.py check</code> 就会有。
+    {% else %}
+      没有叫这个名字的监控项。
+    {% endif %}
+  </div>
+</div>
+</body>
+</html>

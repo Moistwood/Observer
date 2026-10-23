@@ -30,7 +30,8 @@ def check_all():
     for s in sites:
         ch, content = check_one(s)
         if ch:
-            notify.notify(f"{s['name']} 内容有变化: {s['url']}")
+            notify.notify(
+                f"{s['name']} 内容有变化: {s['url']}", subject=f"sitewatch: {s['name']} 内容有变化")
         elif content is None:
             pass  # 出错的站点已在 check_one 里打印过, 这里跳过
         else:

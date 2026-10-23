@@ -44,9 +44,6 @@ def notify(message, subject=None):
         print(f"[邮件失败] {type(e).__name__}: {e}")
 
 
-    
-
-    print(f"[通知] {message}")
 
 
 if __name__ == "__main__":

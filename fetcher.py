@@ -10,17 +10,11 @@ HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/
 
 
 def _get(u):
-    # 只负责发请求, 异常由调用方处理
     return requests.get(u, timeout=10, headers=HEADERS)
 
 
-def _content_type(r):
-    # 取干净的 MIME 类型, 去掉 ; charset=utf-8 这类参数
-    return r.headers.get("Content-Type", "").split(";")[0].strip().lower()
-
-
-def _parse_keys(keys):
-    # "title,bvid" -> {"title","bvid"}; 空值返回 None, 表示不做过滤
+def _split_keys(keys):
+    # "title,bvid" -> {"title","bvid"}; 没给就返回 None, 表示不过滤
     if not keys:
         return None
     if isinstance(keys, (list, tuple, set)):
@@ -31,27 +25,24 @@ def _parse_keys(keys):
     return picked or None
 
 
-def _looks_like_html(raw):
-    # 服务器没声明类型时, 用它判断该不该走 HTML 解析
-    head = raw[:512].lstrip().lower()
-    return head.startswith(b"<!doctype") or head.startswith(b"<html") or head.startswith(b"<head")
-
-
-def _html_text(r, sel):
-    # 传 bytes 给 BS4: 它会自己看 BOM 和 meta charset, 比猜编码准
+def _html(r, sel):
+    # 传 bytes 给 BS4, 它会看 BOM 和 meta charset, 比自己猜准
     soup = BeautifulSoup(r.content, "html.parser")
     if sel:
-        # 只取匹配选择器的文本
-        parts = [el.get_text(strip=True) for el in soup.select(sel)]
-        return "\n".join(parts)
-    # 去掉脚本样式后取正文
+        return "\n".join(el.get_text(strip=True) for el in soup.select(sel))
     for tag in soup(["script", "style"]):
         tag.decompose()
     return soup.get_text(separator="\n", strip=True)
 
 
-def _filter_json(obj, keys):
-    # 深度优先走完整棵树, 只收指定键名. 返回 (文本, 匹配个数)
+def _json(r, raw=None, keys=None):
+    # 返回 (文本, 命中字段数). 没给 keys 就整份格式化, 命中数为 None
+    text = raw if raw is not None else r.content.decode("utf-8-sig")
+    data = json.loads(text)
+    if not keys:
+        return json.dumps(data, indent=2, ensure_ascii=False, sort_keys=True), None
+
+    # 走一遍整棵树, 只留名单里的键
     hits = []
 
     def walk(node):
@@ -64,12 +55,11 @@ def _filter_json(obj, keys):
             for item in node:
                 walk(item)
 
-    walk(obj)
+    walk(data)
 
     lines = []
     for k, v in hits:
         if isinstance(v, (dict, list)):
-            # 值是嵌套结构时压成一行, 免得一层层展开太多
             val = json.dumps(v, ensure_ascii=False, sort_keys=True)
         elif v is None:
             val = "null"
@@ -81,80 +71,66 @@ def _filter_json(obj, keys):
     return "\n".join(lines), len(hits)
 
 
-def _json_text(r, raw=None, keys=None):
-    # 返回 (文本, 匹配个数). 不过滤时个数为 None
-    # JSON 规定必须是 UTF-8, 直接解字节; utf-8-sig 顺带吃掉 BOM
-    # sort_keys 固定字段顺序, 否则服务器换个顺序就产生假变化
-    text = raw if raw is not None else r.content.decode("utf-8-sig")
-    data = json.loads(text)
-    if keys:
-        return _filter_json(data, keys)
-    return json.dumps(data, indent=2, ensure_ascii=False, sort_keys=True), None
-
-
-def _xml_text(r):
+def _xml(r):
     root = ET.fromstring(r.content)
-    ET.indent(root)  # 需要 Python 3.9+
+    ET.indent(root)
     return ET.tostring(root, encoding="unicode")
 
 
-def _binary_text(r):
-    # 图片/PDF 这类没法比文本, 比内容哈希: 变了能发现, 但看不出哪里变
-    digest = hashlib.sha256(r.content).hexdigest()
-    return f"[二进制] {len(r.content)} bytes sha256={digest}"
-
-
-def _extract(r, sel=None, keys=None):
-    # 按 Content-Type 分流. 返回 (文本, 匹配个数), 个数只在按键名过滤时才有值
-    ct = _content_type(r)
+def _parse(r, sel=None, keys=None):
+    # 看 Content-Type 决定怎么解. 返回 (文本, 命中字段数)
+    ct = r.headers.get("Content-Type", "").split(";")[0].strip().lower()
 
     if ct == "application/json" or ct.endswith("+json"):
         try:
-            return _json_text(r, keys=keys)
+            return _json(r, keys=keys)
         except (ValueError, UnicodeDecodeError):
-            pass  # 声明是 JSON 但内容不是, 退回纯文本处理
+            pass  # 说是 JSON 其实不是, 往下当纯文本处理
 
     if ct in ("application/xml", "text/xml") or ct.endswith("+xml"):
         try:
-            return _xml_text(r), None
+            return _xml(r), None
         except ET.ParseError:
             pass
 
     if ct in ("text/html", "application/xhtml+xml"):
-        return _html_text(r, sel), None
+        return _html(r, sel), None
 
-    if ct == "" and _looks_like_html(r.content):
-        return _html_text(r, sel), None
+    # 服务器没给类型, 看一眼开头像不像 HTML
+    head = r.content[:512].lstrip().lower()
+    if not ct and (head.startswith(b"<!doctype") or head.startswith(b"<html") or head.startswith(b"<head")):
+        return _html(r, sel), None
 
     if ct.startswith("image/") or ct in ("application/pdf", "application/octet-stream"):
-        return _binary_text(r), None
+        # 二进制没法比文本, 比哈希
+        digest = hashlib.sha256(r.content).hexdigest()
+        return f"[二进制] {len(r.content)} bytes sha256={digest}", None
 
-    # 其余 text/* 和未知类型: 按纯文本处理
     text = r.content.decode(r.apparent_encoding or "utf-8", errors="replace")
-    # 有些接口声明 text/plain 但内容是 JSON, 试一次再决定
+    # 有些接口给的是 text/plain, 内容却是 JSON
     stripped = text.strip()
     if stripped[:1] in ("{", "["):
         try:
-            return _json_text(r, raw=stripped, keys=keys)
+            return _json(r, raw=stripped, keys=keys)
         except ValueError:
             pass
     return text, None
 
 
 def fetch(u, sel=None, keys=None):
-    # u=网址 sel=CSS选择器 keys=JSON键名(逗号分隔或集合). 对外行为和之前兼容
-    text, _ = _extract(_get(u), sel, _parse_keys(keys))
+    # u=网址 sel=要提取的选择器 keys=只监控的JSON字段, 返回纯文本
+    text, _ = _parse(_get(u), sel, _split_keys(keys))
     return text
 
 
 def probe(u, sel=None, keys=None):
-    # 抓一次并返回元信息, 给 preview 命令用
+    # 抓一次并把状态码、类型一起返回, 给 preview 用
     r = _get(u)
-    picked = _parse_keys(keys)
-    text, matched = _extract(r, sel, picked)
+    picked = _split_keys(keys)
+    text, matched = _parse(r, sel, picked)
     return {
         "status": r.status_code,
-        "content_type": _content_type(r),
+        "content_type": r.headers.get("Content-Type", "").split(";")[0].strip().lower(),
         "chars": len(text),
         "text": text,
         "keys": picked,

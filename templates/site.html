@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ name }} · sitewatch</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #fff; --line: #e3e6ea;
+    --text: #1f2328; --muted: #6b7280;
+    --add: #1a7f37; --add-bg: #e6f4ea;
+    --del: #b42318; --del-bg: #fdeceb;
+    --mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 32px 20px 64px;
+    background: var(--bg); color: var(--text);
+    font: 14px/1.6 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; }
+  a.back { color: var(--muted); font-size: 12px; text-decoration: none; }
+  a.back:hover { color: var(--text); }
+  h1 { font-size: 20px; font-weight: 600; margin: 10px 0 2px; }
+  .url {
+    color: var(--muted); font-size: 12px; font-family: var(--mono);
+    word-break: break-all; margin-bottom: 8px;
+  }
+  .topbar {
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: 16px; flex-wrap: wrap;
+  }
+  .ops { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
+  .ops form { margin: 0; }
+  .btn {
+    font: inherit; font-size: 13px; padding: 6px 14px; border-radius: 8px;
+    border: 1px solid var(--line); background: #fff; color: var(--text);
+    cursor: pointer;
+  }
+  .btn:hover { border-color: #c7ccd4; }
+  .btn.danger { color: var(--del); }
+  .btn.danger:hover { border-color: #f0c2bd; background: #fdeceb; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 24px; }
+  .tag {
+    font-size: 11px; font-family: var(--mono); color: #4b5563;
+    background: #eef0f3; border-radius: 4px; padding: 1px 6px;
+  }
+  .snap {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 10px; margin-bottom: 12px; overflow: hidden;
+  }
+  .head {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 10px;
+    padding: 10px 16px; border-bottom: 1px solid var(--line);
+    font-size: 12px; color: var(--muted);
+  }
+  .head .idx { font-weight: 600; color: var(--text); }
+  .head .time { font-family: var(--mono); }
+  .up { color: var(--add); font-weight: 600; }
+  .down { color: var(--del); font-weight: 600; }
+  .first { color: #8a6d00; background: #fff8e1; border-radius: 4px; padding: 1px 6px; }
+  .body { padding: 10px 0; }
+  .grp { padding: 4px 16px 8px; }
+  .grp-title { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+  .line {
+    font-family: var(--mono); font-size: 12px; line-height: 1.5;
+    white-space: pre-wrap; word-break: break-all;
+    padding: 1px 8px; border-radius: 3px; margin-bottom: 2px;
+  }
+  .line.add { background: var(--add-bg); color: var(--add); }
+  .line.del { background: var(--del-bg); color: var(--del); }
+  .more { font-size: 11px; color: var(--muted); padding: 2px 8px; }
+  .none { padding: 8px 16px; font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="/">&larr; 返回列表</a>
+  <div class="topbar">
+    <div>
+      <h1>{{ name }}</h1>
+      <div class="url">{{ url }}</div>
+    </div>
+    <div class="ops">
+      <form method="post" action="/check/{{ name|urlencode }}">
+        <button class="btn" type="submit">立即抓取一次</button>
+      </form>
+      <form method="post" action="/delete/{{ name|urlencode }}"
+            onsubmit="return confirm('删除「{{ name }}」和它的全部历史快照？');">
+        <button class="btn danger" type="submit">删除</button>
+      </form>
+    </div>
+  </div>
+
+  {% if selector or json_keys %}
+  <div class="tags">
+    {% if selector %}<span class="tag">selector: {{ selector }}</span>{% endif %}
+    {% if json_keys %}<span class="tag">keys: {{ json_keys }}</span>{% endif %}
+  </div>
+  {% endif %}
+
+  {% for it in items %}
+  <div class="snap">
+    <div class="head">
+      <span class="idx">#{{ it.index }}</span>
+      <span class="time">{{ it.captured_at }}</span>
+      {% if it.first %}
+        <span class="first">首次快照</span>
+      {% else %}
+        <span class="up">+{{ it.added|length }}</span>
+        <span class="down">-{{ it.removed|length }}</span>
+      {% endif %}
+      <span>{{ it.line_count }} 行 · {{ it.char_count }} 字符</span>
+    </div>
+
+    {% if it.first %}
+      <div class="none">首次抓取，作为后续比对的基准。</div>
+    {% elif not it.added and not it.removed %}
+      <div class="none">内容没有差异。</div>
+    {% else %}
+      <div class="body">
+        {% if it.added %}
+        <div class="grp">
+          <div class="grp-title">新增</div>
+          {% for line in it.added[:12] %}<div class="line add">{{ line }}</div>{% endfor %}
+          {% if it.added|length > 12 %}
+            {% set rest = (it.added|length) - 12 %}
+            <div class="more">还有 {{ rest }} 条未显示</div>
+          {% endif %}
+        </div>
+        {% endif %}
+
+        {% if it.removed %}
+        <div class="grp">
+          <div class="grp-title">消失</div>
+          {% for line in it.removed[:12] %}<div class="line del">{{ line }}</div>{% endfor %}
+          {% if it.removed|length > 12 %}
+            {% set rest2 = (it.removed|length) - 12 %}
+            <div class="more">还有 {{ rest2 }} 条未显示</div>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+</body>
+</html>
