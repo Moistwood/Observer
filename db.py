@@ -134,11 +134,14 @@ def get_hist(name):
 
 # ---------- 抓取记录 ----------
 
-def add_run(sn, ts, ok, status=None, chars=None, cost=None, err=None):
+def add_run(sn, ts, ok, status=None, chars=None, cost=None, err=None, pending=False):
+    # pending=True 表示这次有变化、通知还没发出去; 否则记 2 表示无需通知
     c = conn()
     cur = c.execute(
-        "INSERT INTO runs (sn, ts, ok, status, chars, cost, err) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (sn, ts, 1 if ok else 0, status, chars, cost, (err or "")[:300] or None),
+        "INSERT INTO runs (sn, ts, ok, status, chars, cost, err, notified)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (sn, ts, 1 if ok else 0, status, chars, cost,
+         (err or "")[:300] or None, 0 if pending else 2),
     )
     rid = cur.lastrowid
     c.commit()
@@ -196,11 +199,34 @@ def mark_notified(run_id):
     c.close()
 
 
+def mark_skipped(run_id):
+    # 静默期内故意不通知, 记成 2 免得以后被当成积压补发出去
+    c = conn()
+    c.execute("UPDATE runs SET notified=2 WHERE rowid=?", (run_id,))
+    c.commit()
+    c.close()
+
+
+def get_pending(limit=30):
+    # 还没通知出去的变化, 连站点地址一起取出来
+    c = conn()
+    rows = c.execute(
+        """SELECT r.rowid AS rid, r.sn, r.ts, s.url
+           FROM runs r JOIN sites s ON s.name = r.sn
+           WHERE r.notified = 0 AND r.ok = 1
+           ORDER BY r.ts LIMIT ?""",
+        (limit,),
+    ).fetchall()
+    c.close()
+    return rows
+
+
 def prune_runs(sn, keep=200):
     # 只保留最近 N 条, 老的删掉, 否则表会一直长
+    # 还没通知出去的那几条要留着, 不然就丢了
     c = conn()
     c.execute(
-        "DELETE FROM runs WHERE sn=? AND rowid NOT IN "
+        "DELETE FROM runs WHERE sn=? AND notified<>0 AND rowid NOT IN "
         "(SELECT rowid FROM runs WHERE sn=? ORDER BY ts DESC, rowid DESC LIMIT ?)",
         (sn, sn, keep),
     )

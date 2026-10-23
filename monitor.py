@@ -31,10 +31,13 @@ def check_one(site):
 
     cost = time.perf_counter() - t0
     c = info["text"]
-    rid = db.add_run(n, ts, True, status=info["status"], chars=info["chars"], cost=cost)
 
     prev = site["lc"]                    # 上次的内容
     ch = prev is None or prev != c       # 变了吗
+    # 有变化就先记成待通知(notified=0), 邮件发成功后才改成 1
+    rid = db.add_run(n, ts, True, status=info["status"], chars=info["chars"],
+                     cost=cost, pending=ch)
+
     if ch:
         db.upd(n, c, ts)
         db.add_snap(n, c, ts)
@@ -60,13 +63,14 @@ def _in_quiet(site):
 
 
 def _digest(changed, failed):
+    # changed: [{"name": ..., "url": ..., "ts": ...}]
     lines = []
     if changed:
         lines.append(f"本次检查 {len(changed)} 个站点有变化：\n")
-        for i, (s, r) in enumerate(changed, 1):
-            lines.append(f"{i}. {s['name']}")
-            lines.append(f"   {s['url']}")
-            lines.append(f"   {r['ts']}\n")
+        for i, it in enumerate(changed, 1):
+            lines.append(f"{i}. {it['name']}")
+            lines.append(f"   {it['url']}")
+            lines.append(f"   {it['ts']}\n")
     if failed:
         lines.append(f"另有 {len(failed)} 个站点抓取失败：\n")
         for s, r, k in failed:
@@ -82,7 +86,7 @@ def check_all():
         print("还没有监控项, 先用 add 添加。")
         return
 
-    changed = []   # 有变化且不在静默期
+    fresh = []     # 本次有变化、且不在静默期
     failed = []    # 连续失败刚满阈值
     quiet_skip = 0
 
@@ -94,9 +98,11 @@ def check_all():
                 print(f"[无变化] {s['name']}")
             elif _in_quiet(s):
                 quiet_skip += 1
+                db.mark_skipped(r["run_id"])   # 静默期内故意不发, 别留成积压
                 print(f"[静默] {s['name']} 有变化, 但还在静默期里")
             else:
-                changed.append((s, r))
+                fresh.append({"name": s["name"], "url": s["url"],
+                              "ts": r["ts"], "rid": r["run_id"]})
         else:
             k = db.fail_streak(s["name"])
             if k == FAIL_ALERT:
@@ -105,12 +111,23 @@ def check_all():
     if quiet_skip:
         print(f"[提示] {quiet_skip} 个站在静默期内, 这次没发通知")
 
-    if not changed and not failed:
+    # 之前邮件没发出去的, 这次一起补上
+    seen = {x["rid"] for x in fresh}
+    stale = [{"name": x["sn"], "url": x["url"], "ts": x["ts"], "rid": x["rid"]}
+             for x in db.get_pending() if x["rid"] not in seen]
+
+    if not fresh and not stale and not failed:
         print("[完成] 没有需要通知的变化")
         return
 
-    subject = f"sitewatch: {len(changed)} 个站点有变化" if changed else "sitewatch: 有站点抓取失败"
-    notify.notify(_digest(changed, failed), subject=subject)
+    all_changed = stale + fresh
+    subject = (f"sitewatch: {len(all_changed)} 个站点有变化"
+               if all_changed else "sitewatch: 有站点抓取失败")
 
-    for s, r in changed:
-        db.mark_notified(r["run_id"])
+    ok = notify.notify(_digest(all_changed, failed), subject=subject)
+
+    if ok:
+        for x in all_changed:
+            db.mark_notified(x["rid"])
+    else:
+        print(f"[提示] 邮件没发出去, {len(all_changed)} 条变化留在队列里, 下次再试")

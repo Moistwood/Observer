@@ -50,12 +50,14 @@ def notify(message, subject=None):
     conf = _mail_conf()
     if conf is None:
         print("[提示] 还没有配置收件邮箱")
-        return
+        return False
 
     try:
         _send(conf, message, subject or "sitewatch 通知")
+        return True
     except Exception as e:
         print(f"[邮件失败] {type(e).__name__}: {e}")
+        return False
 
 
 def try_send(message, subject="sitewatch 测试"):
