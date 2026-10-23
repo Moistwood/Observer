@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>通知设置 · sitewatch</title>
+<link rel="stylesheet" href="/static/app.css">
+<style>
+  .wrap { max-width: 640px; }
+  .card { padding: var(--s5); margin-bottom: var(--s3); }
+  .actions {
+    display: flex;
+    gap: var(--s3);
+    align-items: center;
+  }
+  .cancel { color: var(--text-3); font-size: 13px; }
+  .cancel:hover { color: var(--text-2); text-decoration: none; }
+  .row { display: flex; gap: var(--s3); }
+  .row .field { flex: 1; }
+  .row .field.narrow { flex: 0 0 128px; }
+  .test-hint { margin: 0 0 var(--s3); }
+
+  /* 本页输入框与按钮的焦点态: 主样式在 app.css, 这里兜底 */
+  input:focus-visible,
+  .btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="/">&larr; 返回列表</a>
+  <h1>通知设置</h1>
+
+  {% if saved %}<div class="good" style="margin-top: var(--s4)">已保存。可以点下面的「发送测试邮件」验证一下。</div>{% endif %}
+  {% if error == 'empty' %}<div class="err" style="margin-top: var(--s4)">发件邮箱和收件邮箱都要填。</div>{% endif %}
+  {% if error == 'port' %}<div class="err" style="margin-top: var(--s4)">端口要填数字，QQ 邮箱用 465。</div>{% endif %}
+  {% if error == 'code' %}<div class="err" style="margin-top: var(--s4)">第一次使用必须填授权码。</div>{% endif %}
+  {% if test == 'ok' %}<div class="good" style="margin-top: var(--s4)">测试邮件已发出，去收件箱看看。</div>{% endif %}
+  {% if test == 'fail' %}<div class="err" style="margin-top: var(--s4)">发送失败：{{ msg or '未知错误' }}</div>{% endif %}
+
+  <div class="tip" style="margin: var(--s4) 0 var(--s5)">
+    <b>授权码不是邮箱密码。</b>QQ 邮箱的获取方式：<br>
+    设置 → 账户 → 开启「POP3/SMTP 服务」→ 按提示生成一个 16 位的授权码，粘贴到下面。
+  </div>
+
+  <div class="card">
+    <form method="post" action="/settings">
+      <div class="field">
+        <label>发件邮箱</label>
+        <input type="text" name="sender" value="{{ conf['sender'] if conf else '' }}"
+               placeholder="用来发通知的邮箱，比如 123456@qq.com">
+      </div>
+
+      <div class="field">
+        <label>授权码<span class="opt">{{ '已保存，留空则不修改' if conf else '必填' }}</span></label>
+        <input type="password" name="auth_code" value=""
+               placeholder="{{ '留空保持原样' if conf else '16 位授权码' }}">
+        <div class="hint">出于安全考虑，页面上不会显示已保存的授权码。</div>
+      </div>
+
+      <div class="field">
+        <label>收件邮箱</label>
+        <input type="text" name="receiver" value="{{ conf['receiver'] if conf else '' }}"
+               placeholder="想在哪里收到提醒">
+        <div class="hint">可以和发件邮箱相同，那样就是自己发给自己。</div>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label>SMTP 服务器<span class="opt">一般不用改</span></label>
+          <input type="text" name="smtp_host" value="{{ conf['smtp_host'] if conf else 'smtp.qq.com' }}">
+        </div>
+        <div class="field narrow">
+          <label>端口</label>
+          <input type="text" name="smtp_port" value="{{ conf['smtp_port'] if conf else '465' }}">
+        </div>
+      </div>
+
+      <div class="actions">
+        <button class="btn primary" type="submit">保存</button>
+        <a class="cancel" href="/">返回</a>
+      </div>
+    </form>
+  </div>
+
+  {% if conf %}
+  <div class="card">
+    <form method="post" action="/settings/test">
+      <div class="hint test-hint">保存之后可以发一封测试邮件，确认授权码和服务器都没问题。</div>
+      <button class="btn" type="submit">发送测试邮件</button>
+    </form>
+  </div>
+  {% endif %}
+</div>
+</body>
+</html>

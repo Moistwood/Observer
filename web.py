@@ -4,14 +4,17 @@ from urllib.parse import quote
 
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 import changes
 import db
 import monitor
+import notify
 
 BASE = Path(__file__).parent
 app = FastAPI(title="sitewatch")
+app.mount("/static", StaticFiles(directory=str(BASE / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE / "templates"))
 
 
@@ -126,3 +129,57 @@ def check_all_now():
     for s in db.get_sites():
         monitor.check_one(s)
     return RedirectResponse("/", status_code=303)
+
+
+@app.get("/settings", response_class=HTMLResponse)
+def settings_page(request: Request):
+    q = request.query_params
+    return templates.TemplateResponse(
+        request,
+        "settings.html",
+        {
+            "conf": notify._mail_conf(),
+            "saved": q.get("saved"),
+            "error": q.get("error"),
+            "test": q.get("test"),
+            "msg": q.get("msg"),
+        },
+    )
+
+
+@app.post("/settings")
+def settings_save(
+    sender: str = Form(""),
+    auth_code: str = Form(""),
+    receiver: str = Form(""),
+    smtp_host: str = Form("smtp.qq.com"),
+    smtp_port: str = Form("465"),
+):
+    sender = sender.strip()
+    receiver = receiver.strip()
+    host = smtp_host.strip() or "smtp.qq.com"
+
+    if not sender or not receiver:
+        return RedirectResponse("/settings?error=empty", status_code=303)
+
+    try:
+        port = int(smtp_port)
+    except ValueError:
+        return RedirectResponse("/settings?error=port", status_code=303)
+
+    # 授权码留空表示沿用原来的, 页面上不回显它
+    old = notify._mail_conf()
+    code = auth_code.strip() or (old["auth_code"] if old else "")
+    if not code:
+        return RedirectResponse("/settings?error=code", status_code=303)
+
+    notify.save_conf(sender, code, receiver, host, port)
+    return RedirectResponse("/settings?saved=1", status_code=303)
+
+
+@app.post("/settings/test")
+def settings_test():
+    ok, err = notify.try_send("这是一封测试邮件，收到就说明邮箱配置没问题。")
+    if ok:
+        return RedirectResponse("/settings?test=ok", status_code=303)
+    return RedirectResponse(f"/settings?test=fail&msg={quote(err[:150])}", status_code=303)

@@ -4,77 +4,67 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>sitewatch · 监控项</title>
+<link rel="stylesheet" href="/static/app.css">
 <style>
-  :root {
-    --bg: #f6f7f9; --card: #fff; --line: #e3e6ea;
-    --text: #1f2328; --muted: #6b7280;
-    --add: #1a7f37; --del: #b42318;
-    --accent: #1f6feb;
-    --mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; padding: 32px 20px 64px;
-    background: var(--bg); color: var(--text);
-    font: 14px/1.6 -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
-  }
-  .wrap { max-width: 880px; margin: 0 auto; }
-  .topbar {
-    display: flex; align-items: flex-end; justify-content: space-between;
-    gap: 16px; flex-wrap: wrap; margin-bottom: 24px;
-  }
-  h1 { font-size: 20px; font-weight: 600; margin: 0 0 4px; }
-  .sub { color: var(--muted); font-size: 13px; }
-  .ops { display: flex; gap: 8px; align-items: center; }
-  .btn {
-    font: inherit; font-size: 13px; padding: 7px 16px; border-radius: 8px;
-    border: 1px solid var(--line); background: #fff; color: var(--text);
-    cursor: pointer; text-decoration: none; display: inline-block;
-  }
-  .btn:hover { border-color: #c7ccd4; }
-  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 500; }
-  .btn.primary:hover { background: #1a5fd0; }
+  .grid { display: grid; gap: var(--s3); }
 
-  .grid { display: grid; gap: 12px; }
-  .card {
-    position: relative;
-    background: var(--card); border: 1px solid var(--line);
-    border-radius: 10px; transition: border-color .15s, box-shadow .15s;
+  .site-card { position: relative; }
+
+  .site-main {
+    display: block;
+    padding: var(--s4) var(--s5);
+    color: inherit;
   }
-  .card:hover { border-color: #c7ccd4; box-shadow: 0 2px 8px rgba(0,0,0,.04); }
-  .card .main {
-    display: block; text-decoration: none; color: inherit; padding: 16px 18px;
+  .site-main:hover { text-decoration: none; }
+
+  .site-name {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin-bottom: var(--s1);
+    padding-right: 72px;
   }
-  .card .name { font-size: 15px; font-weight: 600; margin-bottom: 2px; padding-right: 64px; }
-  .card .url {
-    color: var(--muted); font-size: 12px; font-family: var(--mono);
-    word-break: break-all; margin-bottom: 10px;
-  }
-  .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
-  .tag {
-    font-size: 11px; font-family: var(--mono); color: #4b5563;
-    background: #eef0f3; border-radius: 4px; padding: 1px 6px;
+  .site-url {
+    color: var(--text-3);
+    font-size: 12px;
+    font-family: var(--mono);
     word-break: break-all;
+    margin-bottom: var(--s3);
   }
-  .stat { font-size: 12px; color: var(--muted); }
-  .stat b { font-weight: 600; color: var(--text); }
-  .up { color: var(--add); font-weight: 600; }
-  .down { color: var(--del); font-weight: 600; }
+  .site-stat { font-size: 12px; color: var(--text-3); }
+  .site-stat b { font-weight: 600; color: var(--text); }
 
-  .del-form { position: absolute; top: 14px; right: 14px; margin: 0; }
-  .del-form button {
-    font: inherit; font-size: 12px; padding: 3px 10px; border-radius: 6px;
-    border: 1px solid var(--line); background: #fff; color: var(--muted); cursor: pointer;
-    opacity: 0; transition: opacity .15s, color .15s, border-color .15s;
+  /* 删除按钮常驻显示, 不靠 hover —— 触屏设备没有 hover */
+  .site-del {
+    position: absolute;
+    top: var(--s3);
+    right: var(--s3);
+    margin: 0;
   }
-  .card:hover .del-form button { opacity: 1; }
-  .del-form button:hover { color: var(--del); border-color: #f0c2bd; }
-
-  .empty {
-    background: var(--card); border: 1px dashed var(--line);
-    border-radius: 10px; padding: 48px 24px; text-align: center; color: var(--muted);
+  .site-del button {
+    font: inherit;
+    font-size: 12px;
+    line-height: 1.5;
+    padding: 4px var(--s2);
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--text-3);
+    cursor: pointer;
+    opacity: 0.55;
+    transition: opacity 0.15s, color 0.15s, border-color 0.15s;
   }
-  .empty a { color: var(--accent); }
+  .site-card:hover .site-del button { opacity: 1; }
+  .site-del button:hover {
+    color: var(--danger);
+    border-color: #f2c4c0;
+    background: var(--danger-bg);
+  }
+  .site-del button:focus-visible {
+    opacity: 1;
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
 </style>
 </head>
 <body>
@@ -86,7 +76,8 @@
     </div>
     {% if cards %}
     <div class="ops">
-      <form method="post" action="/check" style="margin:0">
+      <a class="btn" href="/settings">设置</a>
+      <form method="post" action="/check">
         <button class="btn" type="submit">全部检查一次</button>
       </form>
       <a class="btn primary" href="/add">+ 添加站点</a>
@@ -103,10 +94,10 @@
 
   <div class="grid">
   {% for c in cards %}
-    <div class="card">
-      <a class="main" href="/site/{{ c.name|urlencode }}">
-        <div class="name">{{ c.name }}</div>
-        <div class="url">{{ c.url }}</div>
+    <div class="card site-card">
+      <a class="site-main" href="/site/{{ c.name|urlencode }}">
+        <div class="site-name">{{ c.name }}</div>
+        <div class="site-url">{{ c.url }}</div>
 
         {% if c.selector or c.json_keys %}
         <div class="tags">
@@ -116,7 +107,7 @@
         {% endif %}
 
         {% if c.stat %}
-          <div class="stat">
+          <div class="site-stat">
             <b>{{ c.stat.total }}</b> 条快照 · 最近 {{ c.stat.last_at }}
             {% if not c.stat.first %}
               · 最近一次变化 <span class="up">+{{ c.stat.added }}</span>
@@ -124,11 +115,11 @@
             {% endif %}
           </div>
         {% else %}
-          <div class="stat">还没有快照</div>
+          <div class="site-stat">还没有快照</div>
         {% endif %}
       </a>
 
-      <form class="del-form" method="post" action="/delete/{{ c.name|urlencode }}"
+      <form class="site-del" method="post" action="/delete/{{ c.name|urlencode }}"
             onsubmit="return confirm('删除「{{ c.name }}」和它的全部历史快照？');">
         <button type="submit">删除</button>
       </form>
