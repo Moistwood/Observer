@@ -121,8 +121,8 @@ def check_all():
         return
 
     all_changed = stale + fresh
-    subject = (f"sitewatch: {len(all_changed)} 个站点有变化"
-               if all_changed else "sitewatch: 有站点抓取失败")
+    subject = (f"Observer: {len(all_changed)} 个站点有变化"
+               if all_changed else "Observer: 有站点抓取失败")
 
     ok = notify.notify(_digest(all_changed, failed), subject=subject)
 

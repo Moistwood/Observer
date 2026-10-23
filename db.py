@@ -46,6 +46,34 @@ def init_db():
             err      TEXT,
             notified INTEGER DEFAULT 0
         )""")
+    # DWD 明细层: 每一次"内容变了"的结构化记录, 由 snapshots 算出来, 可以随时重算
+    c.execute("""CREATE TABLE IF NOT EXISTS changes (
+            sn         TEXT,
+            ts         TEXT,
+            seq        INTEGER,
+            chars      INTEGER,
+            prev_chars INTEGER,
+            lines      INTEGER,
+            prev_lines INTEGER,
+            add_n      INTEGER,
+            del_n      INTEGER,
+            hash       TEXT,
+            is_first   INTEGER DEFAULT 0,
+            PRIMARY KEY (sn, seq)
+        )""")
+    # DWS 汇总层: 按天按站点聚合. 只存可加性度量(sum_cost 能重算出平均, 反过来不行)
+    c.execute("""CREATE TABLE IF NOT EXISTS daily_stats (
+            d        TEXT,
+            sn       TEXT,
+            runs     INTEGER,
+            ok_runs  INTEGER,
+            changes  INTEGER,
+            add_n    INTEGER,
+            del_n    INTEGER,
+            sum_cost REAL,
+            max_cost REAL,
+            PRIMARY KEY (d, sn)
+        )""")
     # 老版本的库可能缺列: 逐列补上, 不 DROP, 已有数据不动
     have = {r[1] for r in c.execute("PRAGMA table_info(sites)").fetchall()}
     for col in ("url", "selector", "json_keys", "lc", "ua"):
@@ -59,6 +87,8 @@ def init_db():
             c.execute(f"ALTER TABLE snapshots ADD COLUMN {col} TEXT")
     c.execute("CREATE INDEX IF NOT EXISTS idx_snap ON snapshots(sn, cap)")
     c.execute("CREATE INDEX IF NOT EXISTS idx_runs ON runs(sn, ts)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_changes ON changes(sn, ts)")
+    c.execute("CREATE INDEX IF NOT EXISTS idx_daily ON daily_stats(d, sn)")
     c.commit()
     c.close()
 

@@ -9,12 +9,13 @@ from fastapi.templating import Jinja2Templates
 
 import changes
 import db
+import etl
 import monitor
 import notify
 import stats
 
 BASE = Path(__file__).parent
-app = FastAPI(title="sitewatch")
+app = FastAPI(title="Observer")
 app.mount("/static", StaticFiles(directory=str(BASE / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE / "templates"))
 
@@ -93,6 +94,7 @@ def stats_page(request: Request):
             "days": stats.daily(),
             "fails": stats.fail_hours(),
             "latest": stats.latest(),
+            "shapes": stats.change_shape(),
         },
     )
 
@@ -164,6 +166,7 @@ def check_site(name: str):
     site = db.get_site(name)
     if site is not None:
         monitor.check_one(site)
+        etl.run()
     return RedirectResponse(_site_url(name), status_code=303)
 
 
@@ -171,6 +174,7 @@ def check_site(name: str):
 def check_all_now():
     for s in db.get_sites():
         monitor.check_one(s)
+    etl.run()
     return RedirectResponse("/", status_code=303)
 
 

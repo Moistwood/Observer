@@ -53,14 +53,14 @@ def notify(message, subject=None):
         return False
 
     try:
-        _send(conf, message, subject or "sitewatch 通知")
+        _send(conf, message, subject or "Observer 通知")
         return True
     except Exception as e:
         print(f"[邮件失败] {type(e).__name__}: {e}")
         return False
 
 
-def try_send(message, subject="sitewatch 测试"):
+def try_send(message, subject="Observer 测试"):
     # 给界面用: 不打印, 直接把成功与否返回
     conf = _mail_conf()
     if conf is None:

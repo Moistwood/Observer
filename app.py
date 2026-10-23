@@ -51,7 +51,7 @@ def main():
 
     try:
         webview.create_window(
-            "sitewatch",
+            "Observer",
             url,
             width=1080,
             height=800,

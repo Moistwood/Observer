@@ -2,13 +2,14 @@
 import argparse
 
 import db
+import etl
 import fetcher
 import monitor
 
 
 def main():
     db.init_db()  # 建表
-    p = argparse.ArgumentParser(prog="sitewatch", description="网页内容监控器")
+    p = argparse.ArgumentParser(prog="observer", description="Observer - 站点变更检测工具")
     sub = p.add_subparsers(dest="cmd", required=True)
 
     a = sub.add_parser("add", help="添加监控项")
@@ -50,6 +51,7 @@ def main():
 
     elif args.cmd == "check":
         monitor.check_all()
+        etl.run()          # 抓完把明细层和汇总层刷新一遍
 
     elif args.cmd == "history":
         rows = db.get_hist(args.name)
