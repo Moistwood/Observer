@@ -231,6 +231,57 @@ input::placeholder {
   color: var(--text-3);
 }
 
+select {
+  width: 100%;
+  font: inherit;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 12px var(--s3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-ctrl);
+  background: var(--surface);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+}
+
+/* 抓取记录表: 详情页和空页面共用 */
+.section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+  margin: var(--s5) 0 var(--s3);
+}
+
+.runs-wrap { overflow: hidden; }
+.runs { width: 100%; border-collapse: collapse; font-size: 12px; }
+.runs th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--text-3);
+  padding: var(--s2) var(--s4);
+  border-bottom: 1px solid var(--line);
+}
+.runs td {
+  padding: var(--s2) var(--s4);
+  border-bottom: 1px solid var(--line);
+}
+.runs tr:last-child td { border-bottom: none; }
+.runs .mono { font-family: var(--mono); color: var(--text-3); }
+.runs .bad { color: var(--danger); }
+.err-text {
+  color: var(--danger);
+  font-size: 12px;
+  padding-top: 0;
+  word-break: break-all;
+}
+
 .hint {
   font-size: 12px;
   line-height: 1.6;

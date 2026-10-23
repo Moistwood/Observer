@@ -34,6 +34,14 @@
   .site-stat { font-size: 12px; color: var(--text-3); }
   .site-stat b { font-weight: 600; color: var(--text); }
 
+  .run-line {
+    font-size: 12px;
+    color: var(--text-3);
+    margin-top: var(--s1);
+    font-family: var(--mono);
+  }
+  .run-line.bad { color: var(--danger); font-family: inherit; }
+
   /* 删除按钮常驻显示, 不靠 hover —— 触屏设备没有 hover */
   .site-del {
     position: absolute;
@@ -99,10 +107,13 @@
         <div class="site-name">{{ c.name }}</div>
         <div class="site-url">{{ c.url }}</div>
 
-        {% if c.selector or c.json_keys %}
+        {% if c.selector or c.json_keys or c.quiet_min %}
         <div class="tags">
           {% if c.selector %}<span class="tag">selector: {{ c.selector }}</span>{% endif %}
           {% if c.json_keys %}<span class="tag">keys: {{ c.json_keys }}</span>{% endif %}
+          {% if c.quiet_min %}
+          <span class="tag">静默 {% if c.quiet_min >= 60 %}{{ c.quiet_min // 60 }} 小时{% else %}{{ c.quiet_min }} 分钟{% endif %}</span>
+          {% endif %}
         </div>
         {% endif %}
 
@@ -116,6 +127,14 @@
           </div>
         {% else %}
           <div class="site-stat">还没有快照</div>
+        {% endif %}
+
+        {% if c.run and c.run["ok"] %}
+          <div class="run-line">{{ c.run["ts"] }} · {{ c.run["status"] }} · {{ c.run["chars"] }} 字符 · {{ "%.2f"|format(c.run["cost"] or 0) }}s</div>
+        {% elif c.run %}
+          <div class="run-line bad">抓取失败{% if c.fails > 1 %}（连续 {{ c.fails }} 次）{% endif %}：{{ c.run["err"] }}</div>
+        {% else %}
+          <div class="run-line">还没抓过</div>
         {% endif %}
       </a>
 

@@ -16,6 +16,7 @@ def main():
     a.add_argument("url" )
     a.add_argument("--selector", default=None)
     a.add_argument("--json-keys", default=None, help="只监控这些JSON键名, 逗号分隔")
+    a.add_argument("--quiet", type=int, default=0, help="静默期(分钟), 0 表示每次变化都通知")
 
     sub.add_parser("list", help="列出所有监控项")
     sub.add_parser("check", help="检查所有监控项变化")
@@ -31,11 +32,11 @@ def main():
     args = p.parse_args()
 
     if args.cmd == "add":
-        db.add_site(args.name, args.url, args.selector, args.json_keys)
-        if args.json_keys:
-            print(f"已添加: {args.name} -> {args.url} (只监控 {args.json_keys})")
-        else:
-            print(f"已添加: {args.name} -> {args.url}")
+        db.add_site(args.name, args.url, args.selector, args.json_keys, args.quiet)
+        extra = f" (只监控 {args.json_keys})" if args.json_keys else ""
+        if args.quiet:
+            extra += f" (静默 {args.quiet} 分钟)"
+        print(f"已添加: {args.name} -> {args.url}{extra}")
 
     elif args.cmd == "list":
         rows = db.get_sites()

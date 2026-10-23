@@ -6,7 +6,7 @@
 <title>{{ name }} · sitewatch</title>
 <link rel="stylesheet" href="/static/app.css">
 <style>
-  .wrap { max-width: 640px; }
+  .wrap { max-width: 720px; }
 
   .back:focus-visible {
     outline: 2px solid var(--accent);
@@ -17,14 +17,60 @@
 <body>
 <div class="wrap">
   <a class="back" href="/">&larr; 返回列表</a>
-  <h1>{{ name }}</h1>
-  <div class="empty" style="margin-top: var(--s4)">
-    {% if exists %}
-      这个站点还没有任何快照。点一下「立即抓取一次」就会有。
-    {% else %}
-      没有叫这个名字的监控项。
+
+  {% if not exists %}
+    <h1>{{ name }}</h1>
+    <div class="empty" style="margin-top: var(--s4)">
+      没有叫这个名字的监控项，可能已经被删掉了。
+    </div>
+
+  {% else %}
+    <div class="topbar" style="align-items: flex-start">
+      <div>
+        <h1>{{ name }}</h1>
+        <div class="sub">还没有成功抓到过内容</div>
+      </div>
+      <div class="ops">
+        <form method="post" action="/check/{{ name|urlencode }}">
+          <button class="btn primary" type="submit">立即抓取一次</button>
+        </form>
+      </div>
+    </div>
+
+    {% if fails %}
+    <div class="err" style="margin-bottom: var(--s4)">
+      已连续 {{ fails }} 次抓取失败。常见原因：网址失效、被反爬拦了、或者选择器写错了。
+    </div>
     {% endif %}
-  </div>
+
+    {% if runs %}
+    <div class="section-title">抓取记录（最近 {{ runs|length }} 次）</div>
+    <div class="card runs-wrap">
+      <table class="runs">
+        <thead>
+          <tr><th>时间</th><th>结果</th><th>字符数</th><th>耗时</th></tr>
+        </thead>
+        <tbody>
+          {% for r in runs %}
+          <tr>
+            <td class="mono">{{ r["ts"] }}</td>
+            <td class="{{ '' if r['ok'] else 'bad' }}">{% if r["ok"] %}{{ r["status"] }}{% else %}失败{% endif %}</td>
+            <td>{% if r["chars"] is not none %}{{ r["chars"] }}{% else %}-{% endif %}</td>
+            <td>{{ "%.2f"|format(r["cost"] or 0) }}s</td>
+          </tr>
+          {% if not r["ok"] and r["err"] %}
+          <tr><td colspan="4" class="err-text">{{ r["err"] }}</td></tr>
+          {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty" style="margin-top: var(--s4)">
+      这个站点还没有任何抓取记录。点一下「立即抓取一次」试试。
+    </div>
+    {% endif %}
+  {% endif %}
 </div>
 </body>
 </html>

@@ -35,7 +35,10 @@ def index(request: Request):
                 "url": s["url"],
                 "selector": s["selector"],
                 "json_keys": s["json_keys"],
+                "quiet_min": s["quiet_min"] or 0,
                 "stat": changes.summarize(rows),
+                "run": db.last_run(s["name"]),
+                "fails": db.fail_streak(s["name"]),
             }
         )
     return templates.TemplateResponse(request, "index.html", {"cards": cards})
@@ -50,7 +53,13 @@ def site_detail(request: Request, name: str):
         return templates.TemplateResponse(
             request,
             "empty.html",
-            {"name": name, "exists": info is not None},
+            {
+                "name": name,
+                "exists": info is not None,
+                "quiet_min": (info["quiet_min"] or 0) if info else 0,
+                "runs": db.get_runs(name, 10),
+                "fails": db.fail_streak(name),
+            },
         )
 
     items = changes.timeline(rows)
@@ -64,7 +73,10 @@ def site_detail(request: Request, name: str):
             "url": info["url"] if info else "",
             "selector": info["selector"] if info else None,
             "json_keys": info["json_keys"] if info else None,
+            "quiet_min": (info["quiet_min"] or 0) if info else 0,
             "items": items,
+            "runs": db.get_runs(name, 10),
+            "fails": db.fail_streak(name),
         },
     )
 
@@ -83,13 +95,21 @@ def add_submit(
     url: str = Form(""),
     selector: str = Form(""),
     json_keys: str = Form(""),
+    quiet_min: str = Form("0"),
 ):
     name = name.strip()
     url = url.strip()
     selector = selector.strip() or None
     json_keys = json_keys.strip() or None
+    quiet = int(quiet_min) if quiet_min.isdigit() else 0
 
-    form = {"name": name, "url": url, "selector": selector, "json_keys": json_keys}
+    form = {
+        "name": name,
+        "url": url,
+        "selector": selector,
+        "json_keys": json_keys,
+        "quiet_min": quiet,
+    }
 
     def back(msg):
         return templates.TemplateResponse(
@@ -105,7 +125,14 @@ def add_submit(
     if db.get_site(name) is not None:
         return back(f"已经有一个叫「{name}」的监控项了，换个名字")
 
-    db.add_site(name, url, selector, json_keys)
+    db.add_site(name, url, selector, json_keys, quiet)
+    return RedirectResponse(_site_url(name), status_code=303)
+
+
+@app.post("/quiet/{name}")
+def set_quiet(name: str, minutes: str = Form("0")):
+    # 详情页改静默期: 0 表示每次变化都通知
+    db.set_quiet(name, int(minutes) if minutes.isdigit() else 0)
     return RedirectResponse(_site_url(name), status_code=303)
 
 
