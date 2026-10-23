@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>统计 · sitewatch</title>
+<link rel="stylesheet" href="/static/app.css">
+<style>
+  .wrap { max-width: 880px; }
+
+  .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-family: var(--mono);
+  }
+
+  .note {
+    font-size: 12px;
+    color: var(--text-3);
+    line-height: 1.6;
+    margin-top: var(--s2);
+  }
+
+  .back:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="/">&larr; 返回列表</a>
+  <h1>统计</h1>
+  <div class="sub">数据来自抓取记录（runs）和变化快照（snapshots）</div>
+
+  <div class="section-title">各站点总体表现</div>
+  <div class="card runs-wrap">
+    <table class="runs">
+      <thead>
+        <tr>
+          <th>站点</th>
+          <th class="num">抓取</th>
+          <th class="num">成功</th>
+          <th class="num">成功率</th>
+          <th class="num">平均耗时</th>
+          <th class="num">变化</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in over %}
+        <tr>
+          <td>{{ r["sn"] }}</td>
+          <td class="num">{{ r["n"] }}</td>
+          <td class="num">{{ r["ok_n"] }}</td>
+          <td class="num {% if r['rate'] is not none and r['rate'] < 100 %}bad{% endif %}">
+            {% if r["rate"] is not none %}{{ r["rate"] }}%{% else %}—{% endif %}
+          </td>
+          <td class="num">
+            {% if r["avg_cost"] is not none %}{{ "%.2f"|format(r["avg_cost"]) }}s{% else %}—{% endif %}
+          </td>
+          <td class="num">{{ r["changes"] }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="note">
+    「抓取」是检查了多少次，「变化」是其中内容真的变了几次。两个数差很多，说明这个站点很稳定。
+    平均耗时只算成功的抓取——失败那条往往含着超时等待，会把均值拉高。
+  </div>
+
+  <div class="section-title">最近 7 天</div>
+  {% if days %}
+  <div class="card runs-wrap">
+    <table class="runs">
+      <thead>
+        <tr><th>日期</th><th class="num">抓取</th><th class="num">失败</th><th class="num">平均耗时</th></tr>
+      </thead>
+      <tbody>
+        {% for r in days %}
+        <tr>
+          <td>{{ r["d"] }}</td>
+          <td class="num">{{ r["n"] }}</td>
+          <td class="num {% if r['fail'] %}bad{% endif %}">{{ r["fail"] }}</td>
+          <td class="num">
+            {% if r["avg_cost"] is not none %}{{ "%.2f"|format(r["avg_cost"]) }}s{% else %}—{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if days|length < 2 %}
+  <div class="note">现在只有一天的数据，这张表要跑几天才有对比价值。</div>
+  {% endif %}
+  {% else %}
+  <div class="card empty" style="padding: var(--s5)">最近 7 天没有抓取记录。</div>
+  {% endif %}
+
+  <div class="section-title">失败时段分布</div>
+  {% if fails %}
+  <div class="card runs-wrap">
+    <table class="runs">
+      <thead>
+        <tr><th>小时</th><th class="num">抓取</th><th class="num">失败</th></tr>
+      </thead>
+      <tbody>
+        {% for r in fails %}
+        <tr>
+          <td>{{ r["h"] }} 点</td>
+          <td class="num">{{ r["n"] }}</td>
+          <td class="num bad">{{ r["fail"] }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="card empty" style="padding: var(--s5)">还没有抓取失败过。</div>
+  {% endif %}
+
+  <div class="section-title">当前状态</div>
+  <div class="card runs-wrap">
+    <table class="runs">
+      <thead>
+        <tr><th>站点</th><th>最近抓取</th><th class="num">结果</th><th class="num">字符数</th><th class="num">耗时</th></tr>
+      </thead>
+      <tbody>
+        {% for r in latest %}
+        <tr>
+          <td>{{ r["sn"] }}</td>
+          <td class="mono">{{ r["ts"] or "还没抓过" }}</td>
+          <td class="num {% if r['ts'] and not r['ok'] %}bad{% endif %}">
+            {% if not r["ts"] %}—{% elif r["ok"] %}{{ r["status"] }}{% else %}失败{% endif %}
+          </td>
+          <td class="num">{% if r["chars"] is not none %}{{ r["chars"] }}{% else %}—{% endif %}</td>
+          <td class="num">
+            {% if r["cost"] is not none %}{{ "%.2f"|format(r["cost"]) }}s{% else %}—{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+</body>
+</html>

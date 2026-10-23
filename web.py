@@ -11,6 +11,7 @@ import changes
 import db
 import monitor
 import notify
+import stats
 
 BASE = Path(__file__).parent
 app = FastAPI(title="sitewatch")
@@ -77,6 +78,21 @@ def site_detail(request: Request, name: str):
             "items": items,
             "runs": db.get_runs(name, 10),
             "fails": db.fail_streak(name),
+        },
+    )
+
+
+@app.get("/stats", response_class=HTMLResponse)
+def stats_page(request: Request):
+    db.init_db()
+    return templates.TemplateResponse(
+        request,
+        "stats.html",
+        {
+            "over": stats.overview(),
+            "days": stats.daily(),
+            "fails": stats.fail_hours(),
+            "latest": stats.latest(),
         },
     )
 
